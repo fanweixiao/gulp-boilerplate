@@ -46,11 +46,25 @@ config =
         source: './dist/**/*.*'
         destination: './dist/'
         filename: 'app.appcache'
+    react:
+        filename: 'vendor.js'
+        externals: ['react']
 
 handleError = (err) ->
     gutil.log err
     gutil.beep()
     @emit 'end'
+
+gulp.task 'vendor', ->
+    bundle = browserify
+        debug: not production
+
+    bundle.require p for p in config.react.externals
+
+    build = bundle.bundle()
+        .on 'error', handleError
+        .pipe source config.react.filename
+        .pipe gulp.dest config.scripts.destination
 
 gulp.task 'scripts', ->
 
@@ -58,6 +72,9 @@ gulp.task 'scripts', ->
         entries: [config.scripts.source]
         extensions: config.scripts.extensions
         debug: not production
+
+    # separate react components from bundle.js
+    bundle.external p for p in config.react.externals
 
     config.scripts.transforms.forEach (t) -> bundle.transform t
 
@@ -139,13 +156,17 @@ gulp.task 'watch', ->
     gulp.watch config.styles.watch, -> runSequence 'styles', 'manifest'
     gulp.watch config.assets.watch, -> runSequence 'assets', 'manifest'
 
-    bundle = watchify browserify
+    b = browserify
         entries: [config.scripts.source]
         extensions: config.scripts.extensions
         debug: not production
         cache: {}
         packageCache: {}
         fullPaths: true
+
+    b.external p for p in config.react.externals
+
+    bundle = watchify b
 
     config.scripts.transforms.forEach (t) -> bundle.transform t
 
@@ -172,9 +193,9 @@ gulp.task 'watch', ->
     .emit 'update'
 
 gulp.task 'no-js', ['templates', 'styles', 'assets']
-gulp.task 'build', ['scripts', 'no-js'], ->
+gulp.task 'build', ['vendor', 'scripts', 'no-js'], ->
     gulp.start 'manifest'
 
 # scripts and watch conflict and will produce invalid js upon first run
 # which is why the no-js task exists.
-gulp.task 'default', ['watch', 'no-js', 'server']
+gulp.task 'default', ['watch', 'vendor', 'no-js', 'server']
