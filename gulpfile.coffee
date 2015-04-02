@@ -64,6 +64,16 @@ gulp.task 'vendor', ->
     build = bundle.bundle()
         .on 'error', handleError
         .pipe source config.react.filename
+        .pipe buffer()
+        .pipe sourcemaps.init loadMaps: true
+
+    if production
+        build
+            .pipe uglify()
+            .pipe size showFiles: true, gzip: true
+
+    build
+        .pipe sourcemaps.write '.'
         .pipe gulp.dest config.scripts.destination
 
 gulp.task 'scripts', ->
